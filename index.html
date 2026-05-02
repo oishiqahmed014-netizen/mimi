@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Mimi&lt;3</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
@@ -14,13 +14,22 @@
     box-sizing: border-box;
 }
 
-html, body {
+html {
     height: 100%;
+    height: -webkit-fill-available;
+}
+
+body {
+    min-height: 100%;
+    min-height: -webkit-fill-available;
     width: 100%;
-    overflow: clip;
     background: black;
     color: white;
     font-family: 'Lora', serif;
+    /* Allow body scroll on mobile */
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 canvas {
@@ -34,66 +43,73 @@ canvas {
 }
 
 .scene {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: relative;
     z-index: 1;
-    padding: 16px;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    display: flex;
+    justify-content: center;
+    /* Safe area padding for notched devices */
+    padding: max(env(safe-area-inset-top, 20px), 20px)
+             max(env(safe-area-inset-right, 16px), 16px)
+             max(env(safe-area-inset-bottom, 20px), 20px)
+             max(env(safe-area-inset-left, 16px), 16px);
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    align-items: flex-start;
+}
+
+/* On taller viewports, vertically center if content fits */
+@media (min-height: 700px) {
+    .scene {
+        align-items: center;
+    }
 }
 
 .glass-box {
     width: 100%;
     max-width: 520px;
-    padding: clamp(20px, 5vw, 40px) clamp(18px, 5vw, 36px);
+    padding: clamp(22px, 6vw, 44px) clamp(20px, 6vw, 40px);
 
     background: rgba(255, 255, 255, 0.06);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-radius: 16px;
+    border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
 
     text-align: center;
-    line-height: 1.75;
-    font-size: clamp(14px, 3.5vw, 17px);
+    line-height: 1.85;
+
+    /* Fluid font: comfortable on phone, elegant on desktop */
+    font-size: clamp(15px, 4vw, 17px);
 
     box-shadow:
         0 0 40px rgba(174, 194, 224, 0.08),
         0 8px 32px rgba(0, 0, 0, 0.4);
-
-    /* allow scroll inside on very small screens if needed */
-    max-height: calc(100vh - 32px);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
 }
-
-/* hide scrollbar but keep functionality */
-.glass-box::-webkit-scrollbar { display: none; }
-.glass-box { scrollbar-width: none; }
 
 .glass-box p {
     color: rgba(255, 255, 255, 0.88);
     font-style: italic;
+    /* Prevent awkward word breaks on narrow screens */
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .signature {
-    margin-top: 1.5em;
+    margin-top: 1.6em;
     color: rgba(174, 194, 224, 0.9);
     font-weight: 600;
     font-style: normal;
 }
 
-/* Music prompt */
+/* Music hint */
 .music-hint {
     position: fixed;
-    bottom: 18px;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
     left: 50%;
     transform: translateX(-50%);
     font-size: 11px;
-    color: rgba(255,255,255,0.3);
+    color: rgba(255, 255, 255, 0.3);
     letter-spacing: 0.08em;
     font-family: 'Lora', serif;
     z-index: 10;
@@ -131,7 +147,7 @@ canvas {
 <script>
 // ── Rain ──────────────────────────────────────────────────
 const canvas = document.getElementById("rain");
-const ctx = canvas.getContext("2d");
+const ctx    = canvas.getContext("2d");
 
 function resize() {
     canvas.width  = window.innerWidth;
@@ -143,11 +159,11 @@ window.addEventListener("resize", resize);
 const DROP_COUNT = Math.min(400, Math.floor(window.innerWidth * 0.5));
 
 const drops = Array.from({ length: DROP_COUNT }, () => ({
-    x:      Math.random() * canvas.width,
-    y:      Math.random() * canvas.height,
-    len:    Math.random() * 18 + 6,
-    speed:  Math.random() * 4 + 2,
-    alpha:  Math.random() * 0.4 + 0.15,
+    x:     Math.random() * canvas.width,
+    y:     Math.random() * canvas.height,
+    len:   Math.random() * 18 + 6,
+    speed: Math.random() * 4 + 2,
+    alpha: Math.random() * 0.4 + 0.15,
 }));
 
 function drawRain() {
@@ -179,25 +195,21 @@ function startMusic() {
     if (played) return;
     played = true;
     music.volume = 0.7;
-    music.play().catch(() => { played = false; }); // reset if it still fails
+    music.play().catch(() => { played = false; });
     hint.classList.add("hidden");
     setTimeout(() => hint.remove && hint.remove(), 1200);
 }
 
-// Attach to every possible first-interaction event
 ["click", "touchstart", "touchend", "keydown", "pointerdown"].forEach(evt =>
     document.addEventListener(evt, startMusic, { once: true, passive: true })
 );
 
-// Also try immediately on load (works on desktop / some browsers)
 window.addEventListener("load", () => {
     music.play().then(() => {
         played = true;
         hint.classList.add("hidden");
         setTimeout(() => hint.remove && hint.remove(), 1200);
-    }).catch(() => {
-        // Browser blocked it — wait for first interaction (already registered above)
-    });
+    }).catch(() => {});
 });
 </script>
 
